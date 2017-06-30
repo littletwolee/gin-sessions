@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"github.com/boj/redistore"
+	"github.com/garyburd/redigo/redis"
 	"github.com/gorilla/sessions"
 )
 
@@ -27,6 +28,15 @@ func NewRedisStore(size int, network, address, password string, keyPairs ...[]by
 	if err != nil {
 		return nil, err
 	}
+	return &redisStore{store}, nil
+}
+
+func NewRediStoreWithPool(pool *redis.Pool, keyPairs ...[]byte) (RedisStore, error) {
+	store, err := redistore.NewRediStoreWithPool(pool, keyPairs...)
+	if err != nil {
+		return nil, err
+	}
+	//store.SetMaxAge(30)
 	return &redisStore{store}, nil
 }
 

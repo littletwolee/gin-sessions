@@ -5,12 +5,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/context"
 	"github.com/gorilla/sessions"
 )
 
 const (
-	DefaultKey  = "github.com/gin-gonic/contrib/sessions"
 	errorFormat = "[sessions] ERROR! %s\n"
 )
 
@@ -57,16 +55,16 @@ type Session interface {
 	Save() error
 }
 
-func Sessions(name string, store Store) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		s := &session{name, c.Request, store, nil, false, c.Writer}
-		c.Set(DefaultKey, s)
-		defer context.Clear(c.Request)
-		c.Next()
-	}
-}
+// func Sessions(name string, store Store) gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		s := &session{name, c.Request, store, nil, false, c.Writer}
+// 		c.Set(DefaultKey, s)
+// 		defer context.Clear(c.Request)
+// 		c.Next()
+// 	}
+// }
 
-type session struct {
+type Isessions struct {
 	name    string
 	request *http.Request
 	store   Store
@@ -75,37 +73,48 @@ type session struct {
 	writer  http.ResponseWriter
 }
 
-func (s *session) Get(key interface{}) interface{} {
+func GetIsession(name string, request *http.Request, store Store, session *sessions.Session, written bool, writer http.ResponseWriter) *Isessions {
+	return &Isessions{
+		name,
+		request,
+		store,
+		session,
+		written,
+		writer,
+	}
+}
+
+func (s *Isessions) Get(key interface{}) interface{} {
 	return s.Session().Values[key]
 }
 
-func (s *session) Set(key interface{}, val interface{}) {
+func (s *Isessions) Set(key interface{}, val interface{}) {
 	s.Session().Values[key] = val
 	s.written = true
 }
 
-func (s *session) Delete(key interface{}) {
+func (s *Isessions) Delete(key interface{}) {
 	delete(s.Session().Values, key)
 	s.written = true
 }
 
-func (s *session) Clear() {
+func (s *Isessions) Clear() {
 	for key := range s.Session().Values {
 		s.Delete(key)
 	}
 }
 
-func (s *session) AddFlash(value interface{}, vars ...string) {
+func (s *Isessions) AddFlash(value interface{}, vars ...string) {
 	s.Session().AddFlash(value, vars...)
 	s.written = true
 }
 
-func (s *session) Flashes(vars ...string) []interface{} {
+func (s *Isessions) Flashes(vars ...string) []interface{} {
 	s.written = true
 	return s.Session().Flashes(vars...)
 }
 
-func (s *session) Options(options Options) {
+func (s *Isessions) Options(options Options) {
 	s.Session().Options = &sessions.Options{
 		Path:     options.Path,
 		Domain:   options.Domain,
@@ -115,7 +124,7 @@ func (s *session) Options(options Options) {
 	}
 }
 
-func (s *session) Save() error {
+func (s *Isessions) Save() error {
 	if s.Written() {
 		e := s.Session().Save(s.request, s.writer)
 		if e == nil {
@@ -126,7 +135,7 @@ func (s *session) Save() error {
 	return nil
 }
 
-func (s *session) Session() *sessions.Session {
+func (s *Isessions) Session() *sessions.Session {
 	if s.session == nil {
 		var err error
 		s.session, err = s.store.Get(s.request, s.name)
@@ -137,11 +146,12 @@ func (s *session) Session() *sessions.Session {
 	return s.session
 }
 
-func (s *session) Written() bool {
+func (s *Isessions) Written() bool {
 	return s.written
 }
 
 // shortcut to get session
-func Default(c *gin.Context) Session {
-	return c.MustGet(DefaultKey).(Session)
+func (s *Isessions) Default(c *gin.Context, defaultkey string) Session {
+	c.Set(defaultkey, s)
+	return c.MustGet(defaultkey).(Session)
 }
